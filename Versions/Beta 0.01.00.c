@@ -8,15 +8,11 @@
 #define WHITE 2
 char g_mine = BLACK;//己方默认值
 char g_opponent = WHITE;//对手默认值
-int g_counter = 0;
 
 void print_board(char board[][SIZE]);//打印棋盘（调试用）
 void initialize_board(char board[][SIZE]);//初始化棋盘
 int valid_moves(char board[][SIZE], bool moves[][SIZE],char field);//判断有效的位置，返回行动力
 void reverse(char board[][SIZE], unsigned row, unsigned col, char field);//落子并翻转
-void brain(char board[][SIZE], bool moves[][SIZE], int*i, int*j);
-//int get_chess_value(int row, int col, char field);//从估值表得到该位置的价值
-int chess_num(char board[][SIZE], char field);//获取当前棋盘上某一方棋子数量
 
 int main()
 {
@@ -52,7 +48,6 @@ int main()
 			int row, col;
 			scanf_s("%d %d", &row, &col);
 			reverse(board, row, col, g_opponent);
-			g_counter++;
 			//valid_moves(board, moves, g_mine);
 		}
 		//收到TURN指令时
@@ -60,9 +55,16 @@ int main()
 		{
 			int i, j;
 			valid_moves(board, moves, g_mine);
-			brain(board, moves, &i, &j);
+			for (i = 0; i < SIZE; i++)
+			{
+				for (j = 0; j < SIZE; j++)
+				{
+					if (moves[i][j] != 0)
+						goto jump_out;//此处goto用于跳出多层循环
+				}
+			}
+		jump_out:
 			reverse(board, i, j, g_mine);
-			g_counter++;
 			printf("%d %d\n", i, j);
 			fflush(stdout);
 		}
@@ -92,7 +94,6 @@ void initialize_board(char board[][SIZE])
 	board[SIZE/2][SIZE/2-1] = BLACK;
 	board[SIZE/2-1][SIZE/2-1] = WHITE;
 	board[SIZE/2][SIZE/2] = WHITE;
-	g_counter = 4;
 }
 
 int valid_moves(char board[][SIZE], bool moves[][SIZE], char field)
@@ -192,65 +193,4 @@ void reverse(char board[][SIZE], unsigned row, unsigned col, char field)//落子并
 			}
 		}
 	}
-}
-
-void brain(char board[][SIZE], bool moves[][SIZE], int*i, int*j)
-{
-	int score = 0, row = 0, col = 0;
-	int best_score = -10000, best_row = 0, best_col = 0;
-
-	for (row = 0; row < SIZE; row++)
-	{
-		for (col = 0; col < SIZE; col++)
-		{
-			if (moves[row][col])
-			{
-				char temp_board[SIZE][SIZE];
-				bool temp_moves[SIZE][SIZE];
-				memcpy_s(temp_board, SIZE*SIZE, board, SIZE*SIZE);
-				memcpy_s(temp_moves, SIZE*SIZE, moves, SIZE*SIZE);
-				reverse(temp_board, row, col, g_mine);
-				int weight1, weight2;//权重值
-				if (g_counter < 50)
-				{
-					weight1 = 2;
-					weight2 = 8;
-				}
-				else if (g_counter < 200)
-				{
-					weight1 = 8;
-					weight2 = 2;
-				}
-				else
-				{
-					weight1 = 1;
-					weight2 = 9;
-				}
-				score = weight1*(valid_moves(temp_board, temp_moves, g_mine) - valid_moves(temp_board, temp_moves, g_opponent)) \
-					  + weight2*(chess_num(board, g_mine) - chess_num(board, g_opponent));
-				if (score >= best_score)
-				{
-					best_score = score;
-					best_row = row;
-					best_col = col;
-				}
-			}
-		}
-	}
-	*i = best_row;
-	*j = best_col;
-}
-
-int chess_num(char board[][SIZE], char field)
-{
-	int count = 0;
-	for (int i = 0; i < SIZE; i++)
-	{
-		for (int j = 0; j < SIZE; j++)
-		{
-			if (board[i][j] == field)
-				count++;
-		}
-	}
-	return count;
 }
