@@ -15,7 +15,7 @@ void initialize_board(char board[][SIZE]);//初始化棋盘
 int valid_moves(char board[][SIZE], bool moves[][SIZE],char field);//判断有效的位置，返回行动力
 void reverse(char board[][SIZE], unsigned row, unsigned col, char field);//落子并翻转
 void brain(char board[][SIZE], bool moves[][SIZE], int*i, int*j);
-//int get_chess_value(int row, int col, char field);//从估值表得到该位置的价值
+int chess_value(int row, int col);//从估值表得到该位置的价值
 int chess_num(char board[][SIZE], char field);//获取当前棋盘上某一方棋子数量
 
 int main()
@@ -210,24 +210,28 @@ void brain(char board[][SIZE], bool moves[][SIZE], int*i, int*j)
 				memcpy_s(temp_board, SIZE*SIZE, board, SIZE*SIZE);
 				memcpy_s(temp_moves, SIZE*SIZE, moves, SIZE*SIZE);
 				reverse(temp_board, row, col, g_mine);
-				int weight1, weight2;//权重值
+				int weight1, weight2, weight3;//权重值
 				if (g_counter < 50)
 				{
-					weight1 = 2;
-					weight2 = 8;
+					weight1 = 0;
+					weight2 = 0;
+					weight3 = 1;
 				}
-				else if (g_counter < 200)
+				else if (g_counter < 250)
 				{
-					weight1 = 8;
-					weight2 = 2;
+					weight1 = 0;
+					weight2 = 0;
+					weight3 = 1;
 				}
 				else
 				{
-					weight1 = 1;
-					weight2 = 9;
+					weight1 = 0;
+					weight2 = 1;
+					weight3 = 0;
 				}
 				score = weight1*(valid_moves(temp_board, temp_moves, g_mine) - valid_moves(temp_board, temp_moves, g_opponent)) \
-					  + weight2*(chess_num(board, g_mine) - chess_num(board, g_opponent));
+					  + weight2*(chess_num(temp_board, g_mine) - chess_num(temp_board, g_opponent))\
+					  + weight3*chess_value(row, col);
 				if (score >= best_score)
 				{
 					best_score = score;
@@ -253,4 +257,28 @@ int chess_num(char board[][SIZE], char field)
 		}
 	}
 	return count;
+}
+
+int chess_value(int row, int col)
+{
+	int value_board[SIZE][SIZE] =
+	{
+		{ 25, 7,21,19,18,18,18,17,17,18,18,18,19,21, 7,25 },
+		{ 7 , 6,13,12,11,10,10, 9, 9,10,10,11,12,13, 6, 7 },
+		{ 21,12,18,16,16,16,16,16,16,16,16,16,16,18,12,21 },
+		{ 19,12,16,15,15,15,15,15,15,15,15,15,15,16,12,19 },
+		{ 18,11,16,15,15,15,15,15,15,15,15,15,15,16,11,18 },
+		{ 18,10,16,15,15,14,14,14,14,14,14,15,15,16,10,18 },
+		{ 18,10,16,15,15,14,14,14,14,14,14,15,15,16,10,18 },
+		{ 17, 9,16,15,15,14,14,14,14,14,14,15,15,16, 9,17 },
+		{ 17, 9,16,15,15,14,14,14,14,14,14,15,15,16, 9,17 },
+		{ 18,10,16,15,15,14,14,14,14,14,14,15,15,16,10,18 },
+		{ 18,10,16,15,15,14,14,14,14,14,14,15,15,16,10,18 },
+		{ 18,11,16,15,15,15,15,15,15,15,15,15,15,16,11,18 },
+		{ 19,12,16,15,15,15,15,15,15,15,15,15,15,16,12,19 },
+		{ 21,12,18,16,16,16,16,16,16,16,16,16,16,18,12,21 },
+		{ 7 , 6,13,12,11,10,10, 9, 9,10,10,11,12,13, 6, 7 },
+		{ 25, 7,21,19,18,18,18,17,17,18,18,18,19,21, 7,25 },
+	};
+	return value_board[row][col];
 }
