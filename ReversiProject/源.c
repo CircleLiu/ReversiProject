@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <math.h>
 
 #define SIZE 16
 #define BLACK 1
@@ -14,9 +15,10 @@ void print_board(char board[][SIZE]);//打印棋盘（调试用）
 void initialize_board(char board[][SIZE]);//初始化棋盘
 int valid_moves(char board[][SIZE], bool moves[][SIZE],char field);//判断有效的位置，返回行动力
 void reverse(char board[][SIZE], unsigned row, unsigned col, char field);//落子并翻转
-void brain(char board[][SIZE], bool moves[][SIZE], int*i, int*j);
 int chess_value(int row, int col);//从估值表得到该位置的价值
 int chess_num(char board[][SIZE], char field);//获取当前棋盘上某一方棋子数量
+double variance(char board[][SIZE], char field);//用标准差判断棋子的离散程度
+void brain(char board[][SIZE], bool moves[][SIZE], int*i, int*j);
 
 int main()
 {
@@ -126,24 +128,25 @@ int valid_moves(char board[][SIZE], bool moves[][SIZE], char field)
 				{
 					for (d_col = -1; d_col <= 1; d_col++)
 					{
-						if (row + d_row >= SIZE || col + d_col >= SIZE || (d_row == 0 && d_col == 0))
-							continue;//防止越界，跳过自己
-						if (board[row + d_row][col + d_col] == opponent)
+						if (row + d_row < SIZE && col + d_col < SIZE && (d_row != 0 || d_col != 0))//防止越界，跳过自己
 						{
-							probe_row = row + d_row;
-							probe_col = col + d_col;//转到对手
-							while (probe_row + d_row < SIZE && probe_col + d_col < SIZE && board[probe_row + d_row][probe_col + d_col] != 0)//该方向下一个未越界且非空
+							if (board[row + d_row][col + d_col] == opponent)
 							{
-								probe_row += d_row;
-								probe_col += d_col;//转到这位
-								if (board[probe_row][probe_col] == field)//是己方，否则是对手
+								probe_row = row + d_row;
+								probe_col = col + d_col;//转到对手
+								while (probe_row + d_row < SIZE && probe_col + d_col < SIZE && board[probe_row + d_row][probe_col + d_col] != 0)//该方向下一个未越界且非空
 								{
-									if (moves[row][col] == false)
+									probe_row += d_row;
+									probe_col += d_col;//转到这位
+									if (board[probe_row][probe_col] == field)//是己方，否则是对手
 									{
-										moves[row][col] = true;
-										mobility++;
+										if (moves[row][col] == false)
+										{
+											moves[row][col] = true;
+											mobility++;
+										}
+										break;
 									}
-									break;
 								}
 							}
 						}
@@ -170,79 +173,29 @@ void reverse(char board[][SIZE], unsigned row, unsigned col, char field)//落子并
 	{
 		for (d_col = -1; d_col <= 1; d_col++)
 		{
-			if (row + d_row >= SIZE || col + d_col >= SIZE || (d_row == 0 && d_col == 0))
-				continue;//防止越界，跳过自己
-			if (board[row + d_row][col + d_col] == opponent)
+			if (row + d_row < SIZE && col + d_col < SIZE && (d_row != 0 || d_col != 0))//防止越界，跳过自己
 			{
-				probe_row = row + d_row;
-				probe_col = col + d_col;//转到对手
-				while (probe_row + d_row < SIZE && probe_col + d_col < SIZE && board[probe_row + d_row][probe_col + d_col] != 0)//该方向下一个未越界且非空
+				if (board[row + d_row][col + d_col] == opponent)
 				{
-					probe_row += d_row;
-					probe_col += d_col;//转到这位
-					if (board[probe_row][probe_col] == field)//是己方，否则是对手
+					probe_row = row + d_row;
+					probe_col = col + d_col;//转到对手
+					while (probe_row + d_row < SIZE && probe_col + d_col < SIZE && board[probe_row + d_row][probe_col + d_col] != 0)//该方向下一个未越界且非空
 					{
-						while (board[probe_row -= d_row][probe_col -= d_col] == opponent)//倒回去翻转，翻到自己为止
+						probe_row += d_row;
+						probe_col += d_col;//转到这位
+						if (board[probe_row][probe_col] == field)//是己方，否则是对手
 						{
-							board[probe_row][probe_col] = field;
+							while (board[probe_row -= d_row][probe_col -= d_col] == opponent)//倒回去翻转，翻到自己为止
+							{
+								board[probe_row][probe_col] = field;
+							}
+							break;
 						}
-						break;
 					}
 				}
 			}
 		}
 	}
-}
-
-void brain(char board[][SIZE], bool moves[][SIZE], int*i, int*j)
-{
-	int score = 0, row = 0, col = 0;
-	int best_score = -10000, best_row = 0, best_col = 0;
-
-	for (row = 0; row < SIZE; row++)
-	{
-		for (col = 0; col < SIZE; col++)
-		{
-			if (moves[row][col])
-			{
-				char temp_board[SIZE][SIZE];
-				bool temp_moves[SIZE][SIZE];
-				memcpy_s(temp_board, SIZE*SIZE, board, SIZE*SIZE);
-				memcpy_s(temp_moves, SIZE*SIZE, moves, SIZE*SIZE);
-				reverse(temp_board, row, col, g_mine);
-				int weight1, weight2, weight3;//权重值
-				if (g_counter < 50)
-				{
-					weight1 = 1;
-					weight2 = 1;
-					weight3 = 0;
-				}
-				else if (g_counter < 250)
-				{
-					weight1 = 1;
-					weight2 = 0;
-					weight3 = 1;
-				}
-				else
-				{
-					weight1 = 0;
-					weight2 = 1;
-					weight3 = 0;
-				}
-				score = weight1*(valid_moves(temp_board, temp_moves, g_mine) - valid_moves(temp_board, temp_moves, g_opponent)) \
-					  + weight2*(chess_num(temp_board, g_mine) - chess_num(temp_board, g_opponent))\
-					  + weight3*chess_value(row, col);
-				if (score >= best_score)
-				{
-					best_score = score;
-					best_row = row;
-					best_col = col;
-				}
-			}
-		}
-	}
-	*i = best_row;
-	*j = best_col;
 }
 
 int chess_num(char board[][SIZE], char field)
@@ -281,4 +234,95 @@ int chess_value(int row, int col)
 		{ 35, 3,25,22,21,21,21,20,20,21,21,21,22,25, 3,35 },
 	};
 	return value_board[row][col];
+}
+
+double variance(char board[][SIZE], char field)
+{
+	double v_row = 0, v_col = 0;
+	int n = chess_num(board, field);
+	int sum_row = 0, sum_col = 0;
+	for (int row = 0; row < SIZE; row++)
+	{
+		for (int col = 0; col < SIZE; col++)
+		{
+			if (board[row][col] == field)
+			{
+				sum_row += row;
+				sum_col += col;
+			}
+		}
+	}
+	double ave_row = (double)sum_row / n, ave_col = (double)sum_col / n;
+	double square_sum_row = 0, square_sum_col = 0;
+	for (int row = 0; row < SIZE; row++)
+	{
+		for (int col = 0; col < SIZE; col++)
+		{
+			if (board[row][col] == field)
+			{
+				square_sum_row += pow(row - ave_row, 2);
+				square_sum_col += pow(col - ave_col, 2);
+			}
+		}
+	}
+	v_row = square_sum_row / n;
+	v_col = square_sum_col / n;
+	return sqrt(v_row + v_col);
+}
+
+void brain(char board[][SIZE], bool moves[][SIZE], int*i, int*j)
+{
+	double score = 0;
+	int row = 0, col = 0;
+	double best_score = -10000;
+	int best_row = 0, best_col = 0;
+
+	for (row = 0; row < SIZE; row++)
+	{
+		for (col = 0; col < SIZE; col++)
+		{
+			if (moves[row][col])
+			{
+				char temp_board[SIZE][SIZE];
+				bool temp_moves[SIZE][SIZE];
+				memcpy_s(temp_board, SIZE*SIZE, board, SIZE*SIZE);
+				memcpy_s(temp_moves, SIZE*SIZE, moves, SIZE*SIZE);
+				reverse(temp_board, row, col, g_mine);
+				double weight1, weight2, weight3, weight4;//权重值
+				if (g_counter < 40)
+				{
+					weight1 = 0.5;
+					weight2 = 0.5;
+					weight3 = 1.0;
+					weight4 = 1.0;
+				}
+				else if (g_counter < 250)
+				{
+					weight1 = 1.5;
+					weight2 = 0.5;
+					weight3 = 1.5;
+					weight4 = 1.0;
+				}
+				else
+				{
+					weight1 = 0.0;
+					weight2 = 1.0;
+					weight3 = 1.0;
+					weight4 = 0.0;
+				}
+				score = weight1*(valid_moves(temp_board, temp_moves, g_mine) - valid_moves(temp_board, temp_moves, g_opponent)) \
+					  + weight2*(chess_num(temp_board, g_mine) - chess_num(temp_board, g_opponent))\
+					  + weight3*chess_value(row, col)\
+					  + weight4*(variance(temp_board, g_opponent) - variance(temp_board, g_mine));
+				if (score >= best_score)
+				{
+					best_score = score;
+					best_row = row;
+					best_col = col;
+				}
+			}
+		}
+	}
+	*i = best_row;
+	*j = best_col;
 }
